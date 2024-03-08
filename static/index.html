@@ -90,15 +90,15 @@
 
   </svg>
   <script>
-    const histogramSliderWidth = 200;
     //title stuff
     const titleYpos = 30;
-
+    console.log(window.innerHeight);
+    console.log(window.innerWidth);
     // header stuff
     const headerHeight = window.innerHeight / 5;
     const headerColor = "white";
-    const iconYPos = 40;
-    const iconSpacing = 100;
+    const iconYPos = 0.27 * headerHeight;
+    const iconSpacing = .065 * window.innerWidth;
     const filterTextColor = "black";
     // sidebar stuff
     const sidebarWidth = window.innerWidth / 4;
@@ -106,8 +106,7 @@
 
     // histogram stuff
 
-    const reviewSliderWidth = 200;
-    const reviewSliderHeight = 100;
+    const reviewSliderWidth = .52 * sidebarWidth;
     const reviewSliderXOffset = sidebarWidth / 10;
     const reviewSliderYOffset = window.innerHeight / 20;
     const handleRadius = 10;
@@ -120,9 +119,7 @@
     const gridYSpacing = 75;
     const mainGridColor = "white";
     const mainDataTextOffset = 15;
-    const starSpacing = 20;
-    const starXOffset = 10;
-    const starSize = 15;
+
     async function makeVis() {
       let data = await d3.csv("yelp_boston.csv");
       console.log(data);
@@ -518,6 +515,9 @@
       const boxWidth = (mainWidth - ((numCol - 1) * gridXSpacing) - mainDisplayMargins.left - mainDisplayMargins.right) / numCol;
       const boxHeight = (mainHeight - ((numRows - 1) * gridYSpacing) - mainDisplayMargins.top - mainDisplayMargins.bottom) / numRows;
 
+      const starSize = boxHeight / 8;
+      const starSpacing = starSize * 1.3;
+      const starXOffset = starSize / 2;
 
       // let rankingScale = d3.scaleLinear(d3.extent(filteredData))
 
