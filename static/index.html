@@ -1,0 +1,409 @@
+<html>
+
+<head>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://d3js.org/topojson.v3.min.js"></script>
+  <style>
+    svg {
+      background-color: white;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+
+    }
+
+    #svgTitle {
+      font-size: 40px;
+      fill: teal;
+    }
+
+    .fHeader {
+      color: red;
+    }
+
+    #headerRect {
+      stroke: black;
+      stroke-width: 5px;
+    }
+
+    #sidebarRect {
+      stroke: black;
+      stroke-width: 5px;
+    }
+
+    .dataInteractable {
+      cursor: pointer;
+    }
+
+
+
+    .filterInteractable {
+      cursor: pointer;
+
+    }
+  </style>
+</head>
+
+
+<body>
+
+  <svg id="vis"></svg>
+  <script>
+    const histogramSliderWidth = 200;
+    //title stuff
+    const titleYpos = 30;
+
+    // header stuff
+    const headerHeight = window.innerHeight / 5;
+    const headerColor = "lightgray";
+    const iconYPos = 40;
+    const iconSpacing = 100;
+    const filterTextColor = "black";
+    // sidebar stuff
+    const sidebarWidth = window.innerWidth / 4;
+    const sidebarColor = headerColor;
+
+    //main grid
+    const gridXSpacing = 75;
+    const gridYSpacing = 75;
+    const mainGridColor = "white";
+    const mainDataTextOffset = 15;
+    const starSpacing = 20;
+    const starXOffset = 10;
+    const starSize = 15;
+    async function makeVis() {
+      let data = await d3.csv("yelp_boston.csv");
+      console.log(data);
+      let mainSvg = d3.select("svg#vis");
+      mainSvg.attr("height", window.innerHeight);
+      mainSvg.attr("width", window.innerWidth);
+
+      //yelp categeories
+      // breakfast, pizza, mexican, chinese, burgers, thai, sandwiches, seafood, italian, steakhouses, korean, japanese, vietnamese, american
+
+      let categories = [];
+      let search_cat = [];
+      let all_reviews = [];
+      let all_ratings = [];
+      let filteredData = [];
+
+
+      data.forEach(d => {
+        let arr = JSON.parse(d["categories_json"]);
+        arr.forEach(i => {
+          categories.push(i[1]);
+        });
+
+        search_cat.push(d["search category"]);
+        all_reviews.push(Number(d["review_count"]));
+        all_ratings.push(Number(d["rating"]));
+      });
+
+
+      //japanese = japanese + sushi
+      //bakery = bakeries + donuts
+      //cafes = coffee + cafes
+      const filterCategories = ["bakeries", "cafes", "pizza", "mexican", "chinese", "newamerican", "thai", "sandwiches", "italian", "japanese", "french", "indpak"];
+
+
+
+
+      let headerG = mainSvg.append("g")
+        .attr("class", "fHeader")
+        .attr("transform", `translate(${0}, ${0})`);
+
+      let headerBG = headerG.append("rect")
+        .attr("id", "headerRect")
+        .attr("width", window.innerWidth)
+        .attr("height", headerHeight)
+        .attr("fill", headerColor);
+
+      headerG.append("text")
+        .attr("id", "svgTitle")
+        .attr("transform", `translate(${window.innerWidth / 2}, ${titleYpos})`)
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "middle")
+        .text("Temporary Title");
+
+      const marginsTotal = iconSpacing * 2; // Assuming you want a margin on both sides
+      const totalSpacingWidth = iconSpacing * (filterCategories.length - 1);
+      const availableWidthForIcons = headerBG.attr("width") - totalSpacingWidth - marginsTotal;
+      const iconWidth = availableWidthForIcons / filterCategories.length;
+
+
+      let currentCuisines = [...filterCategories];
+      currentCuisines.push("sushi");
+      currentCuisines.push("donuts");
+      currentCuisines.push("coffee");
+
+      let filterButtons = headerG.append("g");
+
+      filterButtons.selectAll("image")
+        .data(filterCategories)
+        .join("image")
+        .attr("x", function (d, i) { return iconSpacing + i * (iconWidth + iconSpacing) })
+        .attr("y", titleYpos + iconYPos)
+        .attr("href", d => `icons/${d}.png`)
+        .attr("width", iconWidth)
+        .attr("class", "filterInteractable")
+        .on("click", toggleClickedCuisine);
+
+      filterButtons.selectAll("text")
+        .data(filterCategories)
+        .join("text")
+        .attr("x", function (d, i) { return iconSpacing + i * (iconWidth + iconSpacing) + iconWidth / 2 })
+        .attr("y", titleYpos + iconYPos + 1.5 * iconWidth)
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "middle")
+        .attr("fill", filterTextColor)
+        .attr("class", "filterInteractable")
+        .text(d => d)
+        .on("click", toggleClickedCuisine);
+
+      filterButtons.append("text")
+        .attr("x", 50)
+        .attr("y", 50);
+
+      let sideBarG = mainSvg.append("g")
+        .attr("class", "sidebar")
+        .attr("transform", `translate(${0}, ${headerHeight})`)
+
+      sideBarG.append("rect")
+        .attr("id", "sidebarRect")
+        .attr("width", sidebarWidth)
+        .attr("height", window.innerHeight - headerHeight)
+        .attr("fill", sidebarColor);
+
+
+
+      let reviewScale = d3.scaleQuantile(all_reviews, ["g1", "g2", "g3", "g4", "g5"]);
+
+
+      const mainDisplayMargins = { "left": 25, "right": 25, "top": 25, "bottom": 75 };
+
+
+      let mainDisplay = mainSvg.append("g")
+        .attr("class", "mGrid")
+        .attr("transform", `translate(${sidebarWidth}, ${headerHeight})`);
+
+      mainDisplay.append("rect")
+        .attr("width", window.innerWidth - sidebarWidth)
+        .attr("height", window.innerHeight - headerHeight)
+        .attr("fill", mainGridColor);
+
+      let displayData = mainDisplay.append("g")
+        .attr("transform", `translate(${mainDisplayMargins.left}, ${mainDisplayMargins.top})`)
+
+
+      const numRows = 3;
+      const numCol = 4;
+      const mainWidth = window.innerWidth - sidebarWidth;
+      const mainHeight = window.innerHeight - headerHeight;
+      const boxWidth = (mainWidth - ((numCol - 1) * gridXSpacing) - mainDisplayMargins.left - mainDisplayMargins.right) / numCol;
+      const boxHeight = (mainHeight - ((numRows - 1) * gridYSpacing) - mainDisplayMargins.top - mainDisplayMargins.bottom) / numRows;
+
+
+      // let rankingScale = d3.scaleLinear(d3.extent(filteredData))
+
+
+
+
+      function toggleClickedCuisine(event, d) {
+        if (currentCuisines.includes(d)) {
+          currentCuisines.splice(currentCuisines.indexOf(d), 1);
+          if (d == "japanese") {
+            let index = currentCuisines.indexOf("sushi");
+            if (index != -1) currentCuisines.splice(index, 1);
+          } else if (d == "bakeries") {
+            let index = currentCuisines.indexOf("donuts");
+            if (index != -1) currentCuisines.splice(index, 1);
+          } else if (d == "cafes") {
+            let index = currentCuisines.indexOf("coffee");
+            if (index != -1) currentCuisines.splice(index, 1);
+          }
+        } else {
+          currentCuisines.push(d);
+          if (d == "japanese") {
+            currentCuisines.push("sushi");
+          } else if (d == "bakeries") {
+            currentCuisines.push("donuts");
+          } else if (d == "cafes") {
+            currentCuisines.push("coffee");
+          }
+        }
+
+        updateFilteredData();
+      }
+
+      function updateFilteredData() {
+        filteredData = data.filter(d => currentCuisines.includes(d["search category"]));
+        updateResults();
+      }
+
+      function updateResults() {
+        let topResults = filteredData.slice(0, numCol * numRows);
+        topResults.forEach(d => {
+          console.log(d["search category"]);
+        });
+        let rects = displayData.selectAll("image").data(topResults)
+          .join("image")
+          .attr("x", (d, i) => {
+            return (boxWidth + gridXSpacing) * (i % numCol);
+          })
+          .attr("y", (d, i) => {
+            return (boxHeight + gridYSpacing) * (i % numRows);
+          })
+          .attr("href", d => `pictures/${d["search category"]}.jpg`)
+          .attr("preserveAspectRatio", "none")
+          .attr("width", boxWidth)
+          .attr("height", boxHeight)
+          .attr("fill", "blue")
+          .attr("curr_ind", (d, i) => i)
+          .attr("class", "dataInteractable")
+          .on("mouseover", (event, d) => resultHover(event, d, event.target.getAttribute("curr_ind")))
+          .on("mouseleave", (event, d) => resultUnhover(event, d, event.target.getAttribute("curr_ind")))
+          .on("click", resultClick);
+
+        let labels = displayData.selectAll("text").data(topResults)
+          .join("text")
+          .attr("x", (d, i) => {
+            return (boxWidth + gridXSpacing) * (i % numCol) + boxWidth / 2;
+          })
+          .attr("y", (d, i) => {
+            return (boxHeight + gridYSpacing) * (i % numRows) + boxHeight + mainDataTextOffset;
+          })
+          .attr("width", boxWidth)
+          .attr("height", boxHeight)
+          .attr("fill", "black")
+          .attr("curr_ind", (d, i) => i)
+          .attr("text-anchor", "middle")
+          .attr("dominant-baseline", "middle")
+          .attr("class", "dataInteractable")
+          .text(d => d["name"]);
+
+        let infoBox = displayData.selectAll("rect").data(topResults)
+          .join("rect")
+          .attr("x", (d, i) => {
+            return (boxWidth + gridXSpacing) * (i % numCol);
+          })
+          .attr("y", (d, i) => {
+            return (boxHeight + gridYSpacing) * (i % numRows) + (boxHeight - (boxHeight / 5));
+          })
+          .attr("width", boxWidth)
+          .attr("height", boxHeight / 5)
+          .attr("fill", "black")
+          .attr("opacity", .8);
+
+        let infoText = displayData.selectAll("text.reviewCount").data(topResults)
+          .join("text")
+          .attr("x", (d, i) => (boxWidth + gridXSpacing) * (i % numCol) + starXOffset + (5 * starSize) + 1.5 * starSpacing)
+          .attr("y", (d, i) => (boxHeight + gridYSpacing) * (i % numRows) + (boxHeight - boxHeight / 10))
+          .attr("width", boxWidth)
+          .attr("height", boxHeight / 5)
+          .attr("text-anchor", "left")
+          .attr("dominant-baseline", "middle")
+          .attr("fill", "white")
+          .attr("class", "reviewCount")
+          .text(d => `(${d["review_count"]})`)
+          .raise();
+
+        let starGroup = displayData.append("g");
+
+
+        topResults.forEach((d, i) => {
+          let x = (boxWidth + gridXSpacing) * (i % numCol);
+          let y = (boxHeight + gridYSpacing) * (i % numRows);
+
+          generateStars(d["rating"], starGroup, x, y);
+        });
+      }
+
+      function resultHover(event, d, i) {
+        // console.log(event, d, Number(i));
+        let hoveredSquare = d3.select(event.target);
+
+        hoveredSquare
+          .style("outline", "3px solid black");
+        let parentGroup = d3.select(hoveredSquare.node().parentNode);
+
+
+        // parentGroup
+        //   .append("rect")
+        //   .attr("x", hoveredSquare.attr("x"))
+        //   .attr("y", Number(hoveredSquare.attr("y")) + (boxHeight - (boxHeight / 5)))
+        //   .attr("width", hoveredSquare.attr("width"))
+        //   .attr("height", hoveredSquare.attr("height") / 5)
+        //   .attr("fill", "black")
+        //   .attr("class", "hoverInfoStuff");
+
+        // parentGroup.append("text")
+        //   .attr("x", Number(hoveredSquare.attr("x")) + starXOffset + (5 * starSize) + 1.5 * starSpacing)
+        //   .attr("y", Number(hoveredSquare.attr("y")) + (boxHeight - (boxHeight / 5)) + boxHeight / 8)
+        //   .attr("width", hoveredSquare.attr("width"))
+        //   .attr("height", hoveredSquare.attr("height") / 5)
+        //   .attr("text-anchor", "left")
+        //   .attr("dominant-baseline", "middle")
+        //   .attr("fill", "white")
+        //   .attr("class", "hoverInfoStuff")
+        //   .text(`(${d["review_count"]})`)
+        //   .attr("class", "hoverInfoStuff");
+      }
+
+      function resultUnhover(event, d, i) {
+        d3.select(event.target)
+          .style("outline", "none");
+
+        d3.selectAll(".hoverInfoStuff").remove();
+      }
+
+      function resultClick(event, d) {
+        window.open(d["url"]);
+      }
+
+      function generateStars(rating, container, x, y) {
+        const fullStars = Math.floor(rating);
+        const halfStar = rating % 1 >= 0.5 ? 1 : 0;
+        const emptyStars = 5 - fullStars - halfStar;
+
+        for (let i = 0; i < fullStars; i++) {
+          container.append("image")
+            .attr("href", "stars/fullStar.png")
+            .attr("x", x + starXOffset + i * starSpacing)
+            .attr("y", y - starSize / 2 + boxHeight - (boxHeight / 10))
+            .attr("width", starSize)
+            .attr("height", starSize);
+        }
+
+        if (halfStar) {
+          container.append("image")
+            .attr("href", "stars/halfStar.png")
+            .attr("x", x + starXOffset + fullStars * starSpacing)
+            .attr("y", y - starSize / 2 + boxHeight - (boxHeight / 10))
+            .attr("width", starSize)
+            .attr("height", starSize);
+        }
+
+        for (let i = 0; i < emptyStars; i++) {
+          container.append("image")
+            .attr("href", "stars/emptyStar.png")
+            .attr("x", x + starXOffset + (fullStars + halfStar) * starSpacing + i * starSpacing)
+            .attr("y", y - starSize / 2 + boxHeight - (boxHeight / 10))
+            .attr("width", starSize)
+            .attr("height", starSize);
+        }
+      }
+
+
+      updateResults();
+
+    }
+    makeVis();
+  </script>
+</body>
+
+</html>
