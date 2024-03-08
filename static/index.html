@@ -46,13 +46,43 @@
       cursor: pointer;
 
     }
+
+    .sliderTrack {
+      stroke: gray;
+      stroke-width: 5px;
+      stroke-linecap: round;
+    }
+
+    .sliderHandle {
+      stroke: black;
+      fill: white;
+      cursor: pointer;
+    }
+
+    .selectedRange {
+      stroke: blue;
+      stroke-width: 6px;
+    }
+
+    .handleLabelBox {
+      fill: white;
+      stroke: black;
+
+    }
+
+    .handleLabel {
+      fill: black;
+      pointer-events: none;
+    }
   </style>
 </head>
 
 
 <body>
 
-  <svg id="vis"></svg>
+  <svg id="vis">
+
+  </svg>
   <script>
     const histogramSliderWidth = 200;
     //title stuff
@@ -68,6 +98,15 @@
     const sidebarWidth = window.innerWidth / 4;
     const sidebarColor = headerColor;
 
+    // histogram stuff
+
+    const reviewSliderWidth = 200;
+    const reviewSliderHeight = 100;
+    const reviewSliderXOffset = sidebarWidth / 10;
+    const reviewSliderYOffset = window.innerHeight / 20;
+    const handleRadius = 10;
+    const labelBoxHeight = 25;
+    const labelBoxWidth = 40;
     //main grid
     const gridXSpacing = 75;
     const gridYSpacing = 75;
@@ -110,9 +149,6 @@
       //cafes = coffee + cafes
       const filterCategories = ["bakeries", "cafes", "pizza", "mexican", "chinese", "newamerican", "thai", "sandwiches", "italian", "japanese", "french", "indpak"];
 
-
-
-
       let headerG = mainSvg.append("g")
         .attr("class", "fHeader")
         .attr("transform", `translate(${0}, ${0})`);
@@ -128,7 +164,7 @@
         .attr("transform", `translate(${window.innerWidth / 2}, ${titleYpos})`)
         .attr("text-anchor", "middle")
         .attr("dominant-baseline", "middle")
-        .text("Temporary Title");
+        .text("Food Finder");
 
       const marginsTotal = iconSpacing * 2; // Assuming you want a margin on both sides
       const totalSpacingWidth = iconSpacing * (filterCategories.length - 1);
@@ -181,7 +217,147 @@
 
 
 
-      let reviewScale = d3.scaleQuantile(all_reviews, ["g1", "g2", "g3", "g4", "g5"]);
+      let reviewRangeG = sideBarG.append("g").attr("transform", `translate(${sidebarWidth / 2 - reviewSliderWidth / 2}, ${reviewSliderYOffset})`);
+
+      let reviewXScale = d3.scaleLinear([0, d3.max(all_reviews)], [0, reviewSliderWidth]);
+
+      reviewRangeG.append("line")
+        .attr("class", "sliderTrack")
+        .attr("x1", 0)
+        .attr("x2", reviewSliderWidth)
+        .attr("y1", 0)
+        .attr("y2", 0);
+
+      let reviewSelectedRange = reviewRangeG.append("line")
+        .attr("class", "selectedRange")
+        .attr("x1", 0)
+        .attr("x2", reviewSliderWidth);
+
+
+      let reviewHandle1Val = 0;
+      let reviewHandle2Val = reviewXScale.domain()[1];
+      const reviewHandles = reviewRangeG.selectAll("circle").data(reviewXScale.domain())
+        .join("circle")
+        .attr("r", handleRadius)
+        .attr("cx", d => reviewXScale(d))
+        .attr("class", "sliderHandle")
+        .attr("id", (d, i) => i)
+        .call(d3.drag().on("drag", reviewHandleDragged));
+
+      const reviewHandleRects = reviewRangeG.selectAll("rect").data(reviewXScale.domain())
+        .join("rect")
+        .attr("x", d => reviewXScale(d) - labelBoxWidth / 2)
+        .attr("y", handleRadius * 3 - labelBoxHeight / 2)
+        .attr("width", labelBoxWidth)
+        .attr("height", labelBoxHeight)
+        .attr("rx", 8)
+        .attr("class", "handleLabelBox");
+
+      const reviewHandleLabels = reviewRangeG.selectAll("text").data(reviewXScale.domain())
+        .join("text")
+        .attr("x", d => reviewXScale(d))
+        .attr("y", handleRadius * 3)
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "middle")
+        .attr("class", "handleLabel")
+        .text(d => d);
+
+
+      function updateReviewSelectedRange() {
+        let x0 = reviewXScale(reviewHandle1Val);
+        let x1 = reviewXScale(reviewHandle2Val);
+        reviewSelectedRange
+          .attr("x1", x0)
+          .attr("x2", x1);
+      }
+
+
+      function reviewHandleDragged(event, d) {
+        // console.log(event, d, i);
+        let xPos = event.x;
+        let newVal = reviewXScale.invert(xPos);
+        if (event.subject == reviewXScale.domain()[1]) {
+          if (newVal > reviewHandle1Val) {
+            newVal = Math.max(reviewXScale.domain()[0], Math.min(reviewXScale.domain()[1], newVal));
+            reviewHandle2Val = newVal;
+            d3.select(this).attr("cx", reviewXScale(newVal));
+
+
+          }
+        } else if (event.subject == reviewXScale.domain()[0]) {
+          if (newVal < reviewHandle2Val) {
+            newVal = Math.max(reviewXScale.domain()[0], Math.min(reviewXScale.domain()[1], newVal));
+            reviewHandle1Val = newVal;
+            d3.select(this).attr("cx", reviewXScale(newVal));
+
+          }
+        }
+        updateReviewSelectedRange();
+
+        reviewHandleLabels.data([reviewHandle1Val, reviewHandle2Val])
+          .attr("x", d => reviewXScale(d))
+          .text(d => Math.round(d));
+
+        reviewHandleRects.data([reviewHandle1Val, reviewHandle2Val])
+          .attr("x", d => reviewXScale(d) - labelBoxWidth / 2);
+      }
+
+
+
+
+      // let reviewHistoG = sideBarG.append("g")
+      //   .attr("transform", `translate(${0}, ${10})`);
+
+
+      // let reviewHistogram = d3.histogram()
+      //   .value(d => d["review_count"])
+      //   .domain(reviewXScale.domain())
+      //   .thresholds([30, 75, 150, 250, 500, 800, 1200, 3550]);
+
+      // let reviewBins = reviewHistogram(data);
+
+      // console.log(reviewBins);
+      // let reviewYScale = d3.scaleLog([1, d3.max(reviewBins, d => d.length)], [reviewSliderHeight, 0]);
+      // console.log(reviewYScale(1))
+
+
+      // reviewHistoG.selectAll("rect").data(reviewBins)
+      //   .join("rect")
+      //   .attr("x", d => reviewXScale(d.x0))
+      //   .attr("y", d => {
+      //     return reviewYScale(d.length || 1)
+      //   })
+      //   .attr("width", d => reviewXScale(d.x1) - reviewXScale(d.x0))
+      //   .attr("height", d => reviewSliderHeight - (reviewYScale(d.length || 1) - 1));
+
+      // const numBins = 5
+
+      // let reviewXScale = d3.scaleBand(d3.range(numBins), [0, reviewSliderWidth]).padding(0.1);
+
+
+      // let reviewQScale = d3.scaleQuantile(all_reviews, d3.range(numBins));
+
+      // let reviewBins = Array.from({ length: numBins }, () => []);
+      // data.forEach(d => {
+      //   reviewBins[reviewQScale(d["review_count"])].push(d);
+      // });
+
+      // let reviewYScale = d3.scaleLinear([0, d3.max(reviewBins, d => d.length)], [reviewSliderHeight, 1])
+      // console.log(d3.extent(reviewBins, d => d.length));
+
+      // console.log(reviewBins);
+
+      // reviewBins.forEach(d => console.log(d.length));
+
+      // reviewHistoG.selectAll("rect")
+      //   .data(reviewBins)
+      //   .join("rect")
+      //   .attr("x", (d, i) => reviewXScale(i))
+      //   .attr("y", d => reviewYScale(d.length))
+      //   .attr("width", d => reviewXScale.bandwidth())
+      //   .attr("height", d => reviewYScale(0) - (reviewYScale(d.length) - 1));
+
+
 
 
       const mainDisplayMargins = { "left": 25, "right": 25, "top": 25, "bottom": 75 };
