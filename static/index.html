@@ -107,6 +107,7 @@
     const handleRadius = 10;
     const labelBoxHeight = 25;
     const labelBoxWidth = 40;
+    const ratingSliderYOffset = window.innerHeight / 20;
     //main grid
     const gridXSpacing = 75;
     const gridYSpacing = 75;
@@ -242,7 +243,7 @@
         .attr("cx", d => reviewXScale(d))
         .attr("class", "sliderHandle")
         .attr("id", (d, i) => i)
-        .call(d3.drag().on("drag", reviewHandleDragged));
+        .call(d3.drag().on("drag", reviewHandleDragged).on("end", reviewHandleDragEnd));
 
       const reviewHandleRects = reviewRangeG.selectAll("rect").data(reviewXScale.domain())
         .join("rect")
@@ -289,7 +290,6 @@
             newVal = Math.max(reviewXScale.domain()[0], Math.min(reviewXScale.domain()[1], newVal));
             reviewHandle1Val = newVal;
             d3.select(this).attr("cx", reviewXScale(newVal));
-
           }
         }
         updateReviewSelectedRange();
@@ -300,6 +300,100 @@
 
         reviewHandleRects.data([reviewHandle1Val, reviewHandle2Val])
           .attr("x", d => reviewXScale(d) - labelBoxWidth / 2);
+      }
+
+      function reviewHandleDragEnd(event, d) {
+        updateFilteredData();
+      }
+
+
+      let ratingRangeG = sideBarG.append("g").attr("transform", `translate(${sidebarWidth / 2 - reviewSliderWidth / 2}, ${ratingSliderYOffset * 5})`);
+
+      let ratingXScale = d3.scaleLinear([0, d3.max(all_ratings)], [0, reviewSliderWidth]);
+
+      ratingRangeG.append("line")
+        .attr("class", "sliderTrack")
+        .attr("x1", 0)
+        .attr("x2", reviewSliderWidth)
+        .attr("y1", 0)
+        .attr("y2", 0);
+
+      let ratingSelectedRange = ratingRangeG.append("line")
+        .attr("class", "selectedRange")
+        .attr("x1", 0)
+        .attr("x2", reviewSliderWidth);
+
+
+      let ratingHandle1Val = 0;
+      let ratingHandle2Val = ratingXScale.domain()[1];
+      const ratingHandles = ratingRangeG.selectAll("circle").data(ratingXScale.domain())
+        .join("circle")
+        .attr("r", handleRadius)
+        .attr("cx", d => ratingXScale(d))
+        .attr("class", "sliderHandle")
+        .attr("id", (d, i) => i)
+        .call(d3.drag().on("drag", ratingHandleDragged).on("end", ratingHandleDragEnd));
+
+      const ratingHandleRects = ratingRangeG.selectAll("rect").data(ratingXScale.domain())
+        .join("rect")
+        .attr("x", d => ratingXScale(d) - labelBoxWidth / 2)
+        .attr("y", handleRadius * 3 - labelBoxHeight / 2)
+        .attr("width", labelBoxWidth)
+        .attr("height", labelBoxHeight)
+        .attr("rx", 8)
+        .attr("class", "handleLabelBox");
+
+      const ratingHandleLabels = ratingRangeG.selectAll("text").data(ratingXScale.domain())
+        .join("text")
+        .attr("x", d => ratingXScale(d))
+        .attr("y", handleRadius * 3)
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "middle")
+        .attr("class", "handleLabel")
+        .text(d => d);
+
+
+      function updateRatingSelectedRange() {
+        let x0 = ratingXScale(ratingHandle1Val);
+        let x1 = ratingXScale(ratingHandle2Val);
+        ratingSelectedRange
+          .attr("x1", x0)
+          .attr("x2", x1);
+      }
+
+
+      function ratingHandleDragged(event, d) {
+        // console.log(event, d, i);
+        let xPos = event.x;
+        let newVal = ratingXScale.invert(xPos);
+        if (event.subject == ratingXScale.domain()[1]) {
+          if (newVal > ratingHandle1Val) {
+            newVal = Math.max(ratingXScale.domain()[0], Math.min(ratingXScale.domain()[1], newVal));
+            ratingHandle2Val = newVal;
+            d3.select(this).attr("cx", ratingXScale(newVal));
+
+
+          }
+        } else if (event.subject == ratingXScale.domain()[0]) {
+          if (newVal < ratingHandle2Val) {
+            newVal = Math.max(ratingXScale.domain()[0], Math.min(ratingXScale.domain()[1], newVal));
+            ratingHandle1Val = newVal;
+            d3.select(this).attr("cx", ratingXScale(newVal));
+          }
+        }
+        updateRatingSelectedRange();
+
+        ratingHandleLabels.data([ratingHandle1Val, ratingHandle2Val])
+          .attr("x", d => ratingXScale(d))
+          .text(d => Math.round(d * 2) / 2);
+
+        ratingHandleRects.data([ratingHandle1Val, ratingHandle2Val])
+          .attr("x", d => ratingXScale(d) - labelBoxWidth / 2);
+      }
+
+      function ratingHandleDragEnd(event, d) {
+        console.log(ratingHandle1Val, ratingHandle2Val);
+        updateFilteredData();
       }
 
 
@@ -418,14 +512,14 @@
 
       function updateFilteredData() {
         filteredData = data.filter(d => currentCuisines.includes(d["search category"]));
+        filteredData = filteredData.filter(d => d["review_count"] >= reviewHandle1Val || d["review_count" <= reviewHandle2Val]);
+        filteredData = filteredData.filter(d => d["rating"] >= Math.round(ratingHandle1Val * 2) / 2 && d["rating"] <= Math.round(ratingHandle2Val * 2) / 2);
         updateResults();
       }
 
       function updateResults() {
         let topResults = filteredData.slice(0, numCol * numRows);
-        topResults.forEach(d => {
-          console.log(d["search category"]);
-        });
+
         let rects = displayData.selectAll("image").data(topResults)
           .join("image")
           .attr("x", (d, i) => {
