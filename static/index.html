@@ -187,15 +187,30 @@
 
       let filterButtons = headerG.append("g");
 
+      const filterRects = filterButtons.selectAll("rect")
+        .data(filterCategories)
+        .join("rect")
+        .attr("x", (d, i) => iconSpacing + i * (iconWidth + iconSpacing) + iconWidth / 2 - (iconWidth * 2.5))
+        .attr("y", titleYpos + iconYPos + iconWidth / 2 - iconWidth)
+        .attr("width", iconWidth * 5)
+        .attr("height", iconWidth * 3)
+        .attr("class", "filterInteractable")
+        .attr("stroke", "black")
+        .attr("stroke-width", 1)
+        .on("click", toggleClickedCuisine);
+
+
       filterButtons.selectAll("image")
         .data(filterCategories)
         .join("image")
-        .attr("x", function (d, i) { return iconSpacing + i * (iconWidth + iconSpacing) })
+        .attr("x", (d, i) => iconSpacing + i * (iconWidth + iconSpacing))
         .attr("y", titleYpos + iconYPos)
         .attr("href", d => `icons/${d}.png`)
         .attr("width", iconWidth)
         .attr("class", "filterInteractable")
         .on("click", toggleClickedCuisine);
+
+
 
       filterButtons.selectAll("text")
         .data(filterCategories)
@@ -208,10 +223,6 @@
         .attr("class", "filterInteractable")
         .text(d => d)
         .on("click", toggleClickedCuisine);
-
-      filterButtons.append("text")
-        .attr("x", 50)
-        .attr("y", 50);
 
       let sideBarG = mainSvg.append("g")
         .attr("class", "sidebar")
@@ -538,6 +549,17 @@
         }
 
         updateFilteredData();
+        updateFilterVisuals();
+      }
+
+      function updateFilterVisuals() {
+        // filterButtons.selectAll("image")
+        //   .style("outline", d => currentCuisines.includes(d) ? "3px solid black" : "none");
+        filterButtons.selectAll("rect")
+          .attr("fill", d => {
+            return currentCuisines.includes(d) ? "lightgrey" : "white";
+          })
+
       }
 
       function updateFilteredData() {
@@ -545,7 +567,16 @@
         filteredData = filteredData.filter(d => d["review_count"] >= reviewHandle1Val || d["review_count" <= reviewHandle2Val]);
         filteredData = filteredData.filter(d => d["rating"] >= Math.round(ratingHandle1Val * 2) / 2 && d["rating"] <= Math.round(ratingHandle2Val * 2) / 2);
 
-        filteredData.sort((a, b) => b["rating"] - a["rating"]);
+        filteredData.sort((a, b) => {
+          if (Number(a["rating"]) < Number(b["rating"])) return 1;
+          if (Number(a["rating"]) > Number(b["rating"])) return -1;
+
+
+          if (Number(a["review_count"]) < Number(b["review_count"])) return 1;
+          if (Number(a["review_count"]) > Number(b["review_count"])) return -1;
+
+          return 0;
+        });
         updateResults();
       }
 
@@ -702,7 +733,7 @@
 
 
       updateFilteredData();
-
+      updateFilterVisuals();
     }
     makeVis();
   </script>
