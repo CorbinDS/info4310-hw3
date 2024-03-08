@@ -19,7 +19,8 @@
 
     #svgTitle {
       font-size: 40px;
-      fill: teal;
+      fill: #B50717;
+      font-weight: bold;
     }
 
     .fHeader {
@@ -28,11 +29,10 @@
 
     #headerRect {
       stroke: black;
-      stroke-width: 5px;
+      stroke-width: 1px;
     }
 
     #sidebarRect {
-      stroke: black;
       stroke-width: 5px;
     }
 
@@ -60,7 +60,7 @@
     }
 
     .selectedRange {
-      stroke: blue;
+      stroke: #B50717;
       stroke-width: 6px;
     }
 
@@ -73,6 +73,12 @@
     .handleLabel {
       fill: black;
       pointer-events: none;
+    }
+
+    .descriptionLabel {
+      fill: black;
+      pointer-events: none;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -90,13 +96,13 @@
 
     // header stuff
     const headerHeight = window.innerHeight / 5;
-    const headerColor = "lightgray";
+    const headerColor = "white";
     const iconYPos = 40;
     const iconSpacing = 100;
     const filterTextColor = "black";
     // sidebar stuff
     const sidebarWidth = window.innerWidth / 4;
-    const sidebarColor = headerColor;
+    const sidebarColor = "lightgray";
 
     // histogram stuff
 
@@ -108,6 +114,7 @@
     const labelBoxHeight = 25;
     const labelBoxWidth = 40;
     const ratingSliderYOffset = window.innerHeight / 20;
+    const labelDescriptionOffset = -20;
     //main grid
     const gridXSpacing = 75;
     const gridYSpacing = 75;
@@ -216,9 +223,16 @@
         .attr("height", window.innerHeight - headerHeight)
         .attr("fill", sidebarColor);
 
+      sideBarG.append("line")
+        .attr("x1", sidebarWidth)
+        .attr("x2", sidebarWidth)
+        .attr("y1", 0)
+        .attr("y2", window.innerHeight)
+        .attr("stroke", "black");
 
 
-      let reviewRangeG = sideBarG.append("g").attr("transform", `translate(${sidebarWidth / 2 - reviewSliderWidth / 2}, ${reviewSliderYOffset})`);
+
+      let reviewRangeG = sideBarG.append("g").attr("transform", `translate(${sidebarWidth / 2 - reviewSliderWidth / 2}, ${(window.innerHeight - headerHeight) / 3})`);
 
       let reviewXScale = d3.scaleLinear([0, d3.max(all_reviews)], [0, reviewSliderWidth]);
 
@@ -254,7 +268,7 @@
         .attr("rx", 8)
         .attr("class", "handleLabelBox");
 
-      const reviewHandleLabels = reviewRangeG.selectAll("text").data(reviewXScale.domain())
+      const reviewHandleLabels = reviewRangeG.selectAll("text.handleLabel").data(reviewXScale.domain())
         .join("text")
         .attr("x", d => reviewXScale(d))
         .attr("y", handleRadius * 3)
@@ -306,8 +320,15 @@
         updateFilteredData();
       }
 
+      const reviewFilterLabel = reviewRangeG.append("text")
+        .attr("x", reviewSliderWidth / 2)
+        .attr("y", labelDescriptionOffset)
+        .attr("dominant-baseline", "middle")
+        .attr("text-anchor", "middle")
+        .attr("class", "descriptionLabel")
+        .text("Filter by review count");
 
-      let ratingRangeG = sideBarG.append("g").attr("transform", `translate(${sidebarWidth / 2 - reviewSliderWidth / 2}, ${ratingSliderYOffset * 5})`);
+      let ratingRangeG = sideBarG.append("g").attr("transform", `translate(${sidebarWidth / 2 - reviewSliderWidth / 2},  ${2 * (window.innerHeight - headerHeight) / 3})`);
 
       let ratingXScale = d3.scaleLinear([0, d3.max(all_ratings)], [0, reviewSliderWidth]);
 
@@ -395,6 +416,15 @@
         console.log(ratingHandle1Val, ratingHandle2Val);
         updateFilteredData();
       }
+
+
+      const ratingFilterLabel = ratingRangeG.append("text")
+        .attr("x", reviewSliderWidth / 2)
+        .attr("y", labelDescriptionOffset)
+        .attr("dominant-baseline", "middle")
+        .attr("text-anchor", "middle")
+        .attr("class", "descriptionLabel")
+        .text("Filter by rating (stars)");
 
 
 
@@ -514,19 +544,21 @@
         filteredData = data.filter(d => currentCuisines.includes(d["search category"]));
         filteredData = filteredData.filter(d => d["review_count"] >= reviewHandle1Val || d["review_count" <= reviewHandle2Val]);
         filteredData = filteredData.filter(d => d["rating"] >= Math.round(ratingHandle1Val * 2) / 2 && d["rating"] <= Math.round(ratingHandle2Val * 2) / 2);
+
+        filteredData.sort((a, b) => b["rating"] - a["rating"]);
         updateResults();
       }
 
       function updateResults() {
         let topResults = filteredData.slice(0, numCol * numRows);
-
+        console.log(topResults);
         let rects = displayData.selectAll("image").data(topResults)
           .join("image")
           .attr("x", (d, i) => {
             return (boxWidth + gridXSpacing) * (i % numCol);
           })
           .attr("y", (d, i) => {
-            return (boxHeight + gridYSpacing) * (i % numRows);
+            return (boxHeight + gridYSpacing) * Math.floor(i / numCol);
           })
           .attr("href", d => `pictures/${d["search category"]}.jpg`)
           .attr("preserveAspectRatio", "none")
@@ -545,7 +577,7 @@
             return (boxWidth + gridXSpacing) * (i % numCol) + boxWidth / 2;
           })
           .attr("y", (d, i) => {
-            return (boxHeight + gridYSpacing) * (i % numRows) + boxHeight + mainDataTextOffset;
+            return (boxHeight + gridYSpacing) * Math.floor(i / numCol) + boxHeight + mainDataTextOffset;
           })
           .attr("width", boxWidth)
           .attr("height", boxHeight)
@@ -562,7 +594,7 @@
             return (boxWidth + gridXSpacing) * (i % numCol);
           })
           .attr("y", (d, i) => {
-            return (boxHeight + gridYSpacing) * (i % numRows) + (boxHeight - (boxHeight / 5));
+            return (boxHeight + gridYSpacing) * Math.floor(i / numCol) + (boxHeight - (boxHeight / 5));
           })
           .attr("width", boxWidth)
           .attr("height", boxHeight / 5)
@@ -572,7 +604,7 @@
         let infoText = displayData.selectAll("text.reviewCount").data(topResults)
           .join("text")
           .attr("x", (d, i) => (boxWidth + gridXSpacing) * (i % numCol) + starXOffset + (5 * starSize) + 1.5 * starSpacing)
-          .attr("y", (d, i) => (boxHeight + gridYSpacing) * (i % numRows) + (boxHeight - boxHeight / 10))
+          .attr("y", (d, i) => (boxHeight + gridYSpacing) * Math.floor(i / numCol) + (boxHeight - boxHeight / 10))
           .attr("width", boxWidth)
           .attr("height", boxHeight / 5)
           .attr("text-anchor", "left")
@@ -587,7 +619,7 @@
 
         topResults.forEach((d, i) => {
           let x = (boxWidth + gridXSpacing) * (i % numCol);
-          let y = (boxHeight + gridYSpacing) * (i % numRows);
+          let y = (boxHeight + gridYSpacing) * Math.floor(i / numCol);
 
           generateStars(d["rating"], starGroup, x, y);
         });
@@ -669,7 +701,7 @@
       }
 
 
-      updateResults();
+      updateFilteredData();
 
     }
     makeVis();
